@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+
+
+<title>Imputation</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<link href="site_libs/anchor-sections-1.0/anchor-sections.css" rel="stylesheet" />
+<script src="site_libs/anchor-sections-1.0/anchor-sections.js"></script>
+<script src="site_libs/kePrint-0.0.1/kePrint.js"></script>
+<link href="site_libs/lightable-0.0.1/lightable.css" rel="stylesheet" />
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 51px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h2 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h3 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h4 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h5 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h6 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">Cars</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">Imputation</h1>
+
+</div>
+
+
+<div id="imputation-calculations" class="section level1">
+<h1>Imputation Calculations</h1>
+<p>This R Markdown document will demonstrate the calculation of imputation for each of the below measures:</p>
+<ul>
+<li><span class="math inline">\(Available\_Stay\_Unit\_Nights\)</span></li>
+<li><span class="math inline">\(Occupied\_Nights\)</span></li>
+<li><span class="math inline">\(Guest\_Nights\)</span></li>
+<li><span class="math inline">\(Guest\_Arrivals\)</span></li>
+<li><span class="math inline">\(Domestic\_Nights\)</span> (and by extension, International Nights, which is <span class="math inline">\(Guest\_Nights - Domestic\_Nights\)</span>)</li>
+</ul>
+<p>We will first inspect the first 6 rows of the data at the start of the imputation process. Where no data for a particular measure is provided, this is indicated by <code>NA</code>. The imputation process will seek to compute an imputed value in place of the <code>NA</code>s, based on data available from comparable properties. Properties which form the comparable set are determined by the RTO, property type, or both.</p>
+</div>
+<div id="step-1---derive-comparable-property-set" class="section level1">
+<h1>Step 1 - Derive Comparable Property Set</h1>
+<p>This first step involves finding the set of other comparable properties for each property. The set of comparable properties will consist of either</p>
+<ul>
+<li>properties sharing the same property type within the same RTO, or</li>
+<li>properties sharing the same property type within New Zealand.</li>
+</ul>
+<p>The former is used when there are sufficient respondents who have submitted data for a given attribute. If there are insufficient respondents, data from all respondents across the country sharing the same property type is used for imputation. This is done to protect the confidentiality of respondents, and also to increase the diversity of responses and to reduce the risk of one or two properties exerting undue influence on the imputation calculation.</p>
+<p>Different imputations will require different fields of data. Currently, there are three ways to compute a set of comparable properties. For any given property, although the set of comparable properties for each imputation calculation is most likely to be the same, differences can arise when the group size is small and properties sharing the same property type within the RTO have submitted data for one attribute but not for an attribute for another imputation calculation.</p>
+<pre class="r"><code>df_grouped = properties%&gt;%
+  group_by_at(c(&quot;rto&quot;, &quot;property_type&quot;)) %&gt;%
+  summarise(
+    
+    # Count properties with at least one stay available unit night  - This is used to determine `comp_set_type`
+    count_of_comparables_occupancy = sum(non_imputed_available_stay_unit_nights &gt; 0, na.rm = T),
+     )%&gt;%
+  ungroup()
+
+df_grouped %&gt;%
+  filter(rto == &quot;Bay of Plenty RTO&quot;) %&gt;%
+  kbl() %&gt;%
+  kable_classic(full_width = F, html_font = &quot;Cambria&quot;) %&gt;%
+  kable_styling(bootstrap_options = c(&quot;striped&quot;, &quot;hover&quot;, &quot;condensed&quot;, &quot;responsive&quot;)) %&gt;%
+  scroll_box(width = &quot;100%&quot;)</code></pre>
+<div style="border: 1px solid #ddd; padding: 5px; overflow-x: scroll; width:100%; ">
+<table class=" lightable-classic table table-striped table-hover table-condensed table-responsive" style="font-family: Cambria; width: auto !important; margin-left: auto; margin-right: auto; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+rto
+</th>
+<th style="text-align:left;">
+property_type
+</th>
+<th style="text-align:right;">
+count_of_comparables_occupancy
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Backpackers (over 20 units)
+</td>
+<td style="text-align:right;">
+3
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Holiday parks and campgrounds
+</td>
+<td style="text-align:right;">
+7
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Hotels (over 20 units)
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Motels and serviced apartments (6-20 units)
+</td>
+<td style="text-align:right;">
+17
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Motels and serviced apartments (over 20 units)
+</td>
+<td style="text-align:right;">
+5
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Other accommodation (over 5 units)
+</td>
+<td style="text-align:right;">
+1
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<pre class="r"><code># Determine comp set type and name
+df_grouped = df_grouped %&gt;%
+  mutate(
+    comp_set_type = ifelse(
+      count_of_comparables_occupancy &gt;= 3,
+      &quot;rto_and_property_type&quot;,
+      &quot;property_type&quot;),
+    
+    comp_set_name = ifelse(
+      count_of_comparables_occupancy &gt;= 3,
+      paste(rto, property_type, sep = &quot;&quot;),
+      property_type)
+  )
+
+df_grouped %&gt;% 
+  filter(rto == &quot;Bay of Plenty RTO&quot;) %&gt;%
+  kbl() %&gt;%
+  kable_classic(full_width = F, html_font = &quot;Cambria&quot;) %&gt;%
+  kable_styling(bootstrap_options = c(&quot;striped&quot;, &quot;hover&quot;, &quot;condensed&quot;, &quot;responsive&quot;)) %&gt;%
+  scroll_box(width = &quot;100%&quot;)</code></pre>
+<div style="border: 1px solid #ddd; padding: 5px; overflow-x: scroll; width:100%; ">
+<table class=" lightable-classic table table-striped table-hover table-condensed table-responsive" style="font-family: Cambria; width: auto !important; margin-left: auto; margin-right: auto; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+rto
+</th>
+<th style="text-align:left;">
+property_type
+</th>
+<th style="text-align:right;">
+count_of_comparables_occupancy
+</th>
+<th style="text-align:left;">
+comp_set_type
+</th>
+<th style="text-align:left;">
+comp_set_name
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Backpackers (over 20 units)
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:left;">
+rto_and_property_type
+</td>
+<td style="text-align:left;">
+Bay of Plenty RTOBackpackers (over 20 units)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Holiday parks and campgrounds
+</td>
+<td style="text-align:right;">
+7
+</td>
+<td style="text-align:left;">
+rto_and_property_type
+</td>
+<td style="text-align:left;">
+Bay of Plenty RTOHoliday parks and campgrounds
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Hotels (over 20 units)
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:left;">
+property_type
+</td>
+<td style="text-align:left;">
+Hotels (over 20 units)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Motels and serviced apartments (6-20 units)
+</td>
+<td style="text-align:right;">
+17
+</td>
+<td style="text-align:left;">
+rto_and_property_type
+</td>
+<td style="text-align:left;">
+Bay of Plenty RTOMotels and serviced apartments (6-20 units)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Motels and serviced apartments (over 20 units)
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:left;">
+rto_and_property_type
+</td>
+<td style="text-align:left;">
+Bay of Plenty RTOMotels and serviced apartments (over 20 units)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Other accommodation (over 5 units)
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+property_type
+</td>
+<td style="text-align:left;">
+Other accommodation (over 5 units)
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>For some regions, there are fewer than 3 accomodation providers for a particular property type which have provided data for this particular field.</p>
+<p>The confidentiality of accomodation providers within these groups is to be protected. To do so, the comparable property set will comprise of all properties of the same property type across all RTOs. When this occurs for a particular property type of an RTO, the <code>comp_set_type</code> is set as <code>property_type</code>.</p>
+<p>In the code <code>comp_set_name</code> is a string concatenation of the <code>rto</code> and <code>property_type</code> (or just the <code>property_type</code> for when there are fewer than 3 comparables. Conceptually, <code>comp_set_name</code> can be thought of as a distinct market. For example, <code>Auckland RTOHotels (over 20 units)</code> represents the market of Hotels in the Auckland RTO Region.</p>
+</div>
+<div id="step-2---compute-operational-ratios-for-each-comparables-group" class="section level1">
+<h1>Step 2 - Compute Operational Ratios for each comparables group</h1>
+<p>For each <code>comp_set_name</code>, we will compute an operational ratio which will be used as an imputation ratio for all accomodation providers within this group (where an imputation is required).</p>
+<p>The ratio calculation is as follows:</p>
+<p><span class="math display">\[r= \frac{
+\sum_{i \in\{i | X_{i\eta} &gt; 0 \}} X_{i\eta}
+}{
+\sum_{i \in\{i | X_{i\eta} &gt; 0 \}} X_{i\delta}
+}\]</span></p>
+<p>where</p>
+<ul>
+<li><p><span class="math inline">\(X\)</span> an <span class="math inline">\(N \times 2\)</span> matrix of values each columns <span class="math inline">\(X_\eta\)</span> representing the values of the numerator variable and <span class="math inline">\(X_\delta\)</span> representing the values of the denominator variable, where <span class="math inline">\(N\)</span> is the number of accomodation providers within the comparable set.</p></li>
+<li><p><span class="math inline">\(r\)</span> is an operational ratio to be imputed.</p></li>
+</ul>
+<div id="occupancy" class="section level2">
+<h2>Occupancy:</h2>
+<p>The ratio for imputing occupancy is given below. The comparable set only consists of accomodation providers for which data for guest arrivals has been provided. The numerator represents the total number of guest arrivals and the denominator represents the total monthly capacity, in the market given by <code>comp_set_name</code>.</p>
+<p><span class="math display">\[r= \frac{
+\sum_{i \in\{i | {guest\_arrivals}_{i} &gt; 0 \}} guest\_arrivals_{i}
+}{
+\sum_{i \in\{i | {guest\_arrivals}_{i} &gt; 0 \}} monthly\_capacity_{i}
+}\]</span></p>
+<pre class="r"><code>df_grouped = properties%&gt;%
+  group_by_at(c(&quot;rto&quot;, &quot;property_type&quot;)) %&gt;%
+  summarise(
+    
+    # Count properties with at least one non_imputed_guest_arrival - This is used to determine `comp_set_type`
+    count_of_comparables_occupancy = sum(non_imputed_available_stay_unit_nights &gt; 0, na.rm = T),
+    
+    # Numerator
+      sum_non_imputed_available_stay_unit_nights = sum(non_imputed_available_stay_unit_nights[non_imputed_available_stay_unit_nights &gt; 0], na.rm = T),
+    
+    # Denominator
+    sum_monthly_capacity = sum(monthly_capacity[non_imputed_available_stay_unit_nights &gt; 0], na.rm = T)
+     )%&gt;%
+  ungroup()
+
+# Determine comp set type and name
+df_grouped = df_grouped %&gt;%
+  mutate(
+    comp_set_type = ifelse(
+      count_of_comparables_occupancy &gt;= 3,
+      &quot;rto_and_property_type&quot;,
+      &quot;rto&quot;),
+    
+    comp_set_name = ifelse(
+      count_of_comparables_occupancy &gt;= 3,
+      paste(rto, property_type, sep = &quot;&quot;),
+      rto)
+  )
+
+# Confidentialise
+
+# For comp_set_type == &#39;property_type&#39;
+aggregations_comp_set_property.df &lt;- df_grouped %&gt;%
+  group_by(comp_set_name = rto) %&gt;%
+  summarise(
+    sum_non_imputed_available_stay_unit_nights = sum(sum_non_imputed_available_stay_unit_nights), 
+    sum_monthly_capacity = sum(sum_monthly_capacity)
+  )
+
+imputation_per_property_type.df = inner_join(
+  x = df_grouped %&gt;% select(comp_set_name, comp_set_type, rto, property_type, count_of_comparables_occupancy),
+  y = aggregations_comp_set_property.df,
+  by = c(&quot;comp_set_name&quot; = &quot;comp_set_name&quot;)
+)
+
+# For comp_set_type == &#39;rto_and_property_type&#39;
+imputation_per_rto_and_property_type.df = df_grouped %&gt;%
+  filter(comp_set_type == &quot;rto_and_property_type&quot;)
+
+imputation_schedule_occupancy = rbind(imputation_per_property_type.df, imputation_per_rto_and_property_type.df)
+
+# Compute Ratio
+imputation_schedule_occupancy$ratio_occupancy = imputation_schedule_occupancy$sum_non_imputed_available_stay_unit_nights / imputation_schedule_occupancy$sum_monthly_capacity
+
+imputation_schedule_occupancy  %&gt;%
+  filter(rto == &quot;Bay of Plenty RTO&quot;) %&gt;%
+  kbl() %&gt;%
+  kable_classic(full_width = F, html_font = &quot;Cambria&quot;) %&gt;%
+  kable_styling(bootstrap_options = c(&quot;striped&quot;, &quot;hover&quot;, &quot;condensed&quot;, &quot;responsive&quot;)) %&gt;%
+  scroll_box(width = &quot;100%&quot;)</code></pre>
+<div style="border: 1px solid #ddd; padding: 5px; overflow-x: scroll; width:100%; ">
+<table class=" lightable-classic table table-striped table-hover table-condensed table-responsive" style="font-family: Cambria; width: auto !important; margin-left: auto; margin-right: auto; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+comp_set_name
+</th>
+<th style="text-align:left;">
+comp_set_type
+</th>
+<th style="text-align:left;">
+rto
+</th>
+<th style="text-align:left;">
+property_type
+</th>
+<th style="text-align:right;">
+count_of_comparables_occupancy
+</th>
+<th style="text-align:right;">
+sum_non_imputed_available_stay_unit_nights
+</th>
+<th style="text-align:right;">
+sum_monthly_capacity
+</th>
+<th style="text-align:right;">
+ratio_occupancy
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+rto
+</td>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Hotels (over 20 units)
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+51485
+</td>
+<td style="text-align:right;">
+58410
+</td>
+<td style="text-align:right;">
+0.8814415
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+rto
+</td>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Other accommodation (over 5 units)
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+51485
+</td>
+<td style="text-align:right;">
+58410
+</td>
+<td style="text-align:right;">
+0.8814415
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTOBackpackers (over 20 units)
+</td>
+<td style="text-align:left;">
+rto_and_property_type
+</td>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Backpackers (over 20 units)
+</td>
+<td style="text-align:right;">
+3
+</td>
+<td style="text-align:right;">
+4688
+</td>
+<td style="text-align:right;">
+5220
+</td>
+<td style="text-align:right;">
+0.8980843
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTOHoliday parks and campgrounds
+</td>
+<td style="text-align:left;">
+rto_and_property_type
+</td>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Holiday parks and campgrounds
+</td>
+<td style="text-align:right;">
+7
+</td>
+<td style="text-align:right;">
+36053
+</td>
+<td style="text-align:right;">
+40860
+</td>
+<td style="text-align:right;">
+0.8823544
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTOMotels and serviced apartments (6-20 units)
+</td>
+<td style="text-align:left;">
+rto_and_property_type
+</td>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Motels and serviced apartments (6-20 units)
+</td>
+<td style="text-align:right;">
+17
+</td>
+<td style="text-align:right;">
+5977
+</td>
+<td style="text-align:right;">
+6720
+</td>
+<td style="text-align:right;">
+0.8894345
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Bay of Plenty RTOMotels and serviced apartments (over 20 units)
+</td>
+<td style="text-align:left;">
+rto_and_property_type
+</td>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Motels and serviced apartments (over 20 units)
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+4077
+</td>
+<td style="text-align:right;">
+4920
+</td>
+<td style="text-align:right;">
+0.8286585
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="properties-in-bay-of-plenty-rto" class="section level4">
+<h4>Properties in Bay of Plenty RTO</h4>
+<p>Lets have a look at the relationship between available monthly capacity and occupancy rates for accomodation providers within the Bay of Plenty RTO. A larger shape indicates that there are more accomodation providers within the comparable set.</p>
+<pre class="r"><code>imputation_schedule_occupancy %&gt;%
+    filter(rto == &quot;Bay of Plenty RTO&quot;) %&gt;%
+    rename(`Monthly Capacity` = sum_monthly_capacity, count = count_of_comparables_occupancy) %&gt;%
+    ggplot(aes(x = `Monthly Capacity`, y = ratio_occupancy, col = property_type)) +
+    geom_point(aes(shape = comp_set_type, size = count)) +
+    geom_text_repel(aes(label = property_type)) +
+    ggtitle(&quot;Occupancy Ratio vs Monthly Capacity of Bay of Plenty Accomodation Providers&quot;)</code></pre>
+<p><img src="imputation_calculation_for_mbie_files/figure-html/unnamed-chunk-16-1.png" width="672" /></p>
+</div>
+<div id="all-hotels-in-new-zealand" class="section level4">
+<h4>All Hotels in New Zealand</h4>
+<p>The below scatter plot shows the count of hotels within each RTO, against the total monthly capacity of hotels within the RTO. RTOs with more than three hotels (indicated by the red dashed line) have <code>compset_type = rto_and_property_type</code>, while RTOs with less than three hotels will have <code>compset_type = rto</code>As expected, the big attractions such as Auckland, Wellington and Queenstown have the highest capacity and will have plenty of comparables.</p>
+<pre class="r"><code>imputation_schedule_occupancy %&gt;%
+    filter(property_type == &quot;Hotels (over 20 units)&quot;) %&gt;%
+    rename(`Monthly Capacity` = sum_monthly_capacity) %&gt;%
+
+    ggplot(aes(x = `Monthly Capacity`, y = count_of_comparables_occupancy, col = comp_set_type)) +
+    geom_point(aes(size = count_of_comparables_occupancy)) +
+    ggtitle(&quot;Occupancy Ratio vs Monthly Capacity of NZ Hotels&quot;) +
+    geom_hline(aes(yintercept =3), linetype = &#39;dashed&#39;, col = &#39;red&#39;) +
+    geom_text_repel(aes(label = rto))</code></pre>
+<p><img src="imputation_calculation_for_mbie_files/figure-html/unnamed-chunk-17-1.png" width="672" /></p>
+</div>
+</div>
+<div id="all-ratios" class="section level2">
+<h2>All Ratios</h2>
+<div id="available-stay-unit-nights" class="section level4">
+<h4>Available Stay Unit Nights</h4>
+<p><span class="math display">\[r= \frac{
+\sum_{i \in\{i | {available\_stay\_unit\_nights}_{i} &gt; 0 \}} available\_stay\_unit\_nights_{i}
+}{
+\sum_{i \in\{i | {available\_stay\_unit\_nights}_{i} &gt; 0 \}} monthly\_capacity_{i}
+}\]</span></p>
+</div>
+<div id="occupied-nights" class="section level4">
+<h4>Occupied Nights</h4>
+<p><span class="math display">\[r= \frac{
+\sum_{i \in\{i | {occupied\_nights}_{i} &gt; 0 \}} occupied\_nights_{i}
+}{
+\sum_{i \in\{i | {occupied\_nights}_{i} &gt; 0 \}} available\_stay\_unit\_nights_{i}
+}\]</span></p>
+</div>
+<div id="guest-nights" class="section level4">
+<h4>Guest Nights</h4>
+<p><span class="math display">\[r= \frac{
+\sum_{i \in\{i | {guest\_nights}_{i} &gt; 0 \}} guest\_nights_{i}
+}{
+\sum_{i \in\{i | {guest\_nights}_{i} &gt; 0 \}} occupied\_nights_{i}
+}\]</span></p>
+</div>
+<div id="guest-arrivals" class="section level4">
+<h4>Guest Arrivals</h4>
+<p><span class="math display">\[r= \frac{
+\sum_{i \in\{i | {guest\_arrivals}_{i} &gt; 0 \}} guest\_arrivals_{i}
+}{
+\sum_{i \in\{i | {guest\_arrivals}_{i} &gt; 0 \}} guest\_nights_{i}
+}\]</span></p>
+</div>
+<div id="domestic-nights" class="section level4">
+<h4>Domestic Nights</h4>
+<p><span class="math display">\[r= \frac{
+\sum_{i \in\{i | {domestic\_nights}_{i} &gt; 0 \}} domestic\_nights_{i}
+}{
+\sum_{i \in\{i | {domestic\_nights}_{i} &gt; 0 \}} guest\_nights_{i}
+}\]</span></p>
+<p>The below function computes an imputation schedule for a particular imputation measure.</p>
+<pre class="r"><code>compute_imputation_schedule &lt;- function(
+  df, 
+  numerator_field, 
+  denominator_field, 
+  imputation_name
+  ){
+  
+  df_grouped = df %&gt;% 
+    # filter_at(vars(numerator_field), ~ .&gt;0) %&gt;%
+    group_by_at(c(&quot;rto&quot;, &quot;property_type&quot;)) %&gt;%
+    summarise_(
+      count = interp(
+        ~sum(var &gt; 0, na.rm = T), 
+        var = as.name(numerator_field)),
+      
+      numerator = interp(~sum(var[var &gt; 0], na.rm = T), var = as.name(numerator_field)),
+      
+      denominator = interp(~sum(var[numerator_var &gt; 0], na.rm = T), var = as.name(denominator_field), numerator_var = as.name(numerator_field))
+      ) %&gt;% ungroup()
+    
+  # Determine comp set type and name
+  df_grouped = df_grouped %&gt;%
+    mutate(
+      comp_set_type = ifelse(
+        count &gt;= 3,
+        &quot;rto_and_property_type&quot;,
+        &quot;property_type&quot;),
+      
+      comp_set_name = ifelse(
+        count &gt;= 3,
+        paste(rto, property_type, sep = &quot;&quot;),
+        property_type)
+    )
+  # Confidentialise
+  aggregations_comp_set_property.df &lt;- df_grouped %&gt;%
+  group_by(comp_set_name = property_type) %&gt;%
+  summarise(
+    numerator = sum(numerator),
+    denominator = sum(denominator)
+  )
+
+  imputation_per_property_type.df = inner_join(
+    x = df_grouped %&gt;%
+      select(comp_set_name, comp_set_type, rto, property_type, count),
+    y = aggregations_comp_set_property.df,
+    by = c(&quot;comp_set_name&quot; = &quot;comp_set_name&quot;)
+  )
+
+  imputation_per_rto_and_property_type.df = df_grouped %&gt;%
+    filter(comp_set_type == &quot;rto_and_property_type&quot;)
+
+  # Row bind the imputation schedules for both `rto_and_property_type` and either `rtop` or `proprety_type`
+  imputation_schedule = rbind(imputation_per_property_type.df, imputation_per_rto_and_property_type.df)
+
+  imputation_schedule = imputation_schedule %&gt;%
+    rename_at(&quot;comp_set_type&quot;, ~paste(imputation_name, &quot;comp_set_type&quot;, sep = &quot;_&quot;)) %&gt;%
+    rename_at(&quot;comp_set_name&quot;, ~paste(imputation_name, &quot;comp_set_name&quot;, sep = &quot;_&quot;)) %&gt;%
+    rename_at(&quot;count&quot;, ~ paste(imputation_name, &quot;imputation_comparables_count&quot;, &quot;count&quot;, sep = &quot;_&quot;)) %&gt;%
+    
+  # Calculate Ratio 
+  mutate(ratio = numerator/denominator) %&gt;%
+    
+  # Rename Columns
+  rename_at(&quot;numerator&quot;, ~ paste(imputation_name, &quot;sum&quot;, numerator_field,  sep = &quot;_&quot;)) %&gt;%
+  rename_at(&quot;denominator&quot;, ~ paste(imputation_name,&quot;sum&quot;, denominator_field,  sep = &quot;_&quot;)) %&gt;%
+  rename_at(&quot;ratio&quot;, ~paste(imputation_name, &quot;ratio&quot;, sep = &quot;_&quot;))
+
+  return(imputation_schedule)
+}</code></pre>
+<pre class="r"><code>#test
+imputation_guest_nights = compute_imputation_schedule(
+  df = properties,
+  numerator_field = &quot;non_imputed_guest_nights&quot;,
+  denominator_field = &quot;non_imputed_occupied_nights&quot;,
+  imputation_name = &quot;guest_nights&quot;
+)</code></pre>
+<pre><code>## `summarise()` ungrouping output (override with `.groups` argument)</code></pre>
+<pre class="r"><code>imputation_guest_nights %&gt;%
+  filter(rto == &quot;Bay of Plenty RTO&quot;)</code></pre>
+<pre><code>## # A tibble: 6 x 8
+##   guest_nights_comp_set_n~ guest_nights_comp~ rto     property_type       guest_nights_imputat~ guest_nights_sum_no~ guest_nights_sum_no~ guest_nights_ra~
+##   &lt;chr&gt;                    &lt;chr&gt;              &lt;chr&gt;   &lt;chr&gt;                               &lt;int&gt;                &lt;dbl&gt;                &lt;dbl&gt;            &lt;dbl&gt;
+## 1 Hotels (over 20 units)   property_type      Bay of~ Hotels (over 20 un~                     0               354997               200028             1.77
+## 2 Other accommodation (ov~ property_type      Bay of~ Other accommodatio~                     1                14449                 7501             1.93
+## 3 Bay of Plenty RTOBackpa~ rto_and_property_~ Bay of~ Backpackers (over ~                     3                 2179                 2116             1.03
+## 4 Bay of Plenty RTOHolida~ rto_and_property_~ Bay of~ Holiday parks and ~                     6                14121                 5786             2.44
+## 5 Bay of Plenty RTOMotels~ rto_and_property_~ Bay of~ Motels and service~                    12                 6467                 3593             1.80
+## 6 Bay of Plenty RTOMotels~ rto_and_property_~ Bay of~ Motels and service~                     4                 3732                 2030             1.84</code></pre>
+<pre class="r"><code># Our five imputation schedules are as follows:
+imputation_available_stay_unit_nights = compute_imputation_schedule(
+  df = properties,
+  numerator_field = &quot;non_imputed_available_stay_unit_nights&quot;,
+  denominator_field = &quot;monthly_capacity&quot;,
+  imputation_name = &quot;available_stay_unit_nights&quot;
+  # property_type = &quot;rto&quot;
+)
+
+imputation_occupied_nights = compute_imputation_schedule(
+  df = properties,
+  numerator_field = &quot;non_imputed_occupied_nights&quot;,
+  denominator_field = &quot;non_imputed_available_stay_unit_nights&quot;,
+  imputation_name = &quot;occupied_nights&quot;
+)
+
+imputation_guest_nights = compute_imputation_schedule(
+  df = properties,
+  numerator_field = &quot;non_imputed_guest_nights&quot;,
+  denominator_field = &quot;non_imputed_occupied_nights&quot;,
+  imputation_name = &quot;guest_nights&quot;
+)
+
+imputation_guest_arrivals = compute_imputation_schedule(
+  df = properties,
+  numerator_field = &quot;non_imputed_guest_arrivals&quot;,
+  denominator_field = &quot;non_imputed_guest_nights&quot;,
+  imputation_name = &quot;guest_arrivals&quot;
+)
+
+imputation_domestic_nights = compute_imputation_schedule(
+  df = properties,
+  numerator_field = &quot;non_imputed_domestic&quot;,
+  denominator_field = &quot;non_imputed_guest_nights&quot;,
+  imputation_name = &quot;domestic_nights&quot;
+)</code></pre>
+</div>
+</div>
+</div>
+<div id="step-3---calculating-the-imputation" class="section level1">
+<h1>Step 3 - Calculating the Imputation</h1>
+<p>The below code demonstrates how the operational ratio is used to compute an imputation for <code>occupied_nights</code>. In this scenario, property 1318 is a property in the Bay of Plenty RTO with property type <code>Holiday parks and campgrounds.</code> We look up the property and the rto in the respective imputation schedule for <code>occupied_nights</code>. Since there are 6 properties with the same property type within the Bay of PLenty RTO, the set of comparables will consist of 5 properties (excluding property 1318).</p>
+<p>To compute the imputed occupied nights, we simply multiply the operational ratio with with the <code>available_stay_unit_nights</code> of property 1318, as so:</p>
+<p><span class="math display">\[Occupied\_Nights_{1318} = r \times occupied\_nights_{1318} \]</span></p>
+<p>where</p>
+<p><span class="math display">\[r= \frac{
+\sum_{i \in\{i | {guest\_nights}_{i} &gt; 0 \}} guest\_nights_{i}
+}{
+\sum_{i \in\{i | {guest\_nights}_{i} &gt; 0 \}} occupied\_nights_{i}
+}\]</span></p>
+<pre class="r"><code>filtered.df = properties%&gt;%
+  filter(fresh_id == 1318) %&gt;%
+  select(fresh_id, rto, property_type, non_imputed_guest_nights, non_imputed_occupied_nights)
+
+# Lookup the rto and property type in the imputation comp set table
+filtered.df = left_join(
+  x = filtered.df,
+  y = imputation_guest_nights,
+  by = c(&quot;rto&quot;, &quot;property_type&quot;)
+)
+
+# Multiply the ratio by the respective field
+filtered.df$imputed_guest_nights = filtered.df$guest_nights_ratio * filtered.df$non_imputed_occupied_nights
+
+# Final Imputed Value 
+filtered.df$imputed_guest_nights</code></pre>
+<pre><code>## [1] 7687.72</code></pre>
+<pre class="r"><code>kbl(filtered.df)%&gt;%
+   kable_classic(full_width = F, html_font = &quot;Cambria&quot;) %&gt;%
+  kable_styling(bootstrap_options = c(&quot;striped&quot;, &quot;hover&quot;, &quot;condensed&quot;, &quot;responsive&quot;)) %&gt;%
+  scroll_box(width = &quot;100%&quot;)</code></pre>
+<div style="border: 1px solid #ddd; padding: 5px; overflow-x: scroll; width:100%; ">
+<table class=" lightable-classic table table-striped table-hover table-condensed table-responsive" style="font-family: Cambria; width: auto !important; margin-left: auto; margin-right: auto; margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:right;">
+fresh_id
+</th>
+<th style="text-align:left;">
+rto
+</th>
+<th style="text-align:left;">
+property_type
+</th>
+<th style="text-align:right;">
+non_imputed_guest_nights
+</th>
+<th style="text-align:right;">
+non_imputed_occupied_nights
+</th>
+<th style="text-align:left;">
+guest_nights_comp_set_name
+</th>
+<th style="text-align:left;">
+guest_nights_comp_set_type
+</th>
+<th style="text-align:right;">
+guest_nights_imputation_comparables_count_count
+</th>
+<th style="text-align:right;">
+guest_nights_sum_non_imputed_guest_nights
+</th>
+<th style="text-align:right;">
+guest_nights_sum_non_imputed_occupied_nights
+</th>
+<th style="text-align:right;">
+guest_nights_ratio
+</th>
+<th style="text-align:right;">
+imputed_guest_nights
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right;">
+1318
+</td>
+<td style="text-align:left;">
+Bay of Plenty RTO
+</td>
+<td style="text-align:left;">
+Holiday parks and campgrounds
+</td>
+<td style="text-align:right;">
+NA
+</td>
+<td style="text-align:right;">
+3150
+</td>
+<td style="text-align:left;">
+Bay of Plenty RTOHoliday parks and campgrounds
+</td>
+<td style="text-align:left;">
+rto_and_property_type
+</td>
+<td style="text-align:right;">
+6
+</td>
+<td style="text-align:right;">
+14121
+</td>
+<td style="text-align:right;">
+5786
+</td>
+<td style="text-align:right;">
+2.440546
+</td>
+<td style="text-align:right;">
+7687.72
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
