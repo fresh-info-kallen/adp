@@ -12,211 +12,6 @@ library(knitr)
 library(kableExtra)
 ```
 
-
-
-```{r message=FALSE, include=FALSE}
-standardise_column_names <- function(df){
-    colnames(df) <- colnames(df) %>%
-      str_replace_all('-', '_') %>%
-      str_replace_all(' ', '_') %>% 
-      str_replace_all('__','_') %>% # Remove Double Underscores
-      tolower()
-}
-```
-
-```{r message=FALSE, include=FALSE}
-one_five.df  = read_excel(
-  path = "2020.09 Monthly survey.xlsx", 
-  sheet = "1.5",
-  skip = 1,
-  na = "?")
-
-colnames(one_five.df) = standardise_column_names(one_five.df)
-
-one_five.df = one_five.df %>%
-  rename(
-    fresh_id = fresh_info_id
-  )
-```
-
-```{r message=FALSE, include=FALSE}
-two_three.df  = read_excel(
-  path = "2020.09 Monthly survey.xlsx", 
-  sheet = "2.3",
-  na = "?")
-
-colnames(two_three.df) <- colnames(two_three.df) %>%
-  str_replace_all('-', '_') %>%
-  str_replace_all(' ', '_') %>% 
-  str_replace_all('__','_') %>% # Remove Double Underscores
-  tolower()
-
-two_three.df = two_three.df %>%
-  rename(
-    fresh_id = fresh_id,
-    monthly_capacity = monthly_capacity
-    )
-```
-
-```{r message=FALSE, include=FALSE}
-three_one.df  = read_excel(
-  path = "2020.09 Monthly survey.xlsx", 
-  sheet = "3.1",
-  skip = 1,
-  na = "?")
-
-colnames(three_one.df) <- colnames(three_one.df) %>%
-  str_replace_all('-', '_') %>%
-  str_replace_all(' ', '_') %>% 
-  str_replace_all('__','_') %>% # Remove Double Underscores
-  tolower()
-
-three_one.df = three_one.df %>%
-  rename(
-    fresh_id = fresh_id,
-    monthly_capacity = monthly_capacity
-    )
-
-```
-
-```{r message=FALSE, include=FALSE}
-six_three.df  = read_excel(
-  path = "2020.09 Monthly survey.xlsx", 
-  sheet = "6.3",
-  skip = 1,
-  na = "?")
-
-colnames(six_three.df) <- colnames(six_three.df) %>%
-  str_replace_all('-', '_') %>%
-  str_replace_all(' ', '_') %>%
-  str_replace_all('__','_') %>% # Remove Double Underscores
-  tolower()
-
-six_three.df = six_three.df %>%
-  rename(fresh_id = fresh_id)
-
-```
-
-```{r message=FALSE, include=FALSE}
-five_one.df  = read_excel(
-  path = "2020.09 Monthly survey.xlsx", 
-  sheet = "5.1",
-  skip = 1,
-  na = "?")
-
-colnames(five_one.df) <- colnames(five_one.df) %>%
-  str_replace_all('-', '_') %>%
-  str_replace_all(' ', '_') %>%
-  str_replace_all('__','_') %>% # Remove Double Underscores
-  tolower()
-
-five_one.df = five_one.df %>%
-    rename(fresh_id = fresh_info_id,
-          sanitised_available_stay_unit_nights = available_stay_unit_nights_calculated,
-          monthly_capacity = total_capacity_calculated)
-
-```
-
-
-
-```{r message=FALSE, include=FALSE}
-core <- read_excel(
-  path = "2020.09 Monthly survey.xlsx",
-  sheet = 'Copy of CORE'
-)
-
-colnames(core) <- colnames(core) %>%
-  str_replace_all('-', '_') %>%
-  str_replace_all(' ', '_') %>% 
-  tolower()
-
-core = core[!is.na(core$fresh_id),]
-
-core <- core %>%
-  rename(property_type = categorisation, monthly_capacity = total_capacity)
-
-
-
-```
-
-
-```{r message=FALSE, include=FALSE}
-target_pop.df = read_excel(
-  path = "2020.09 Monthly survey.xlsx",
-  sheet = "Target Pop"
-)
-
-colnames(target_pop.df) <- colnames(target_pop.df) %>%
-  str_replace_all('-', '_') %>%
-  str_replace_all(' ', '_') %>% 
-  tolower()
-
-
-excluded.df = target_pop.df %>%
-  filter(`exclude_from_imputation_(manual)` == "Exclude" | 
-        data_source == "3.1")
-
-
-# Remove Excluded Properties
-core_non_excluded <- anti_join(
-  x = core,
-  y = excluded.df,
-  by = "fresh_id"
-)
-```
-
-
-
-
-```{r message=FALSE, include=FALSE}
-# meta_measures = c('fresh_id')
-# cleaned_measures = c('monthly_capacity','sanitised_available_stay_unit_nights','sanitised_occupied_nights','sanitised_guest_nights', 'sanitised_guest_arrivals', 'sanitised_domestic_guest_nights', 'sanitised_intl_guest_nights')
-# 
-# 
-# cleaned_measures.df <- bind_rows(
-#   three_one.df %>% select_at(c(meta_measures, cleaned_measures)) %>% mutate(data_source  = "3.1"),
-#   six_three.df %>% select_at(c(meta_measures, cleaned_measures)) %>% mutate(data_source  = "6.3"),
-#   one_five.df %>% select_at(c(meta_measures, cleaned_measures)) %>% mutate(data_source = "1.5"),
-#   two_three.df %>% select_at(c(meta_measures, cleaned_measures)) %>% mutate(data_source  = "2.3"),
-#   five_one.df %>% select_at(c(meta_measures, "sanitised_available_stay_unit_nights", "monthly_capacity")) %>% mutate(data_source  = "5.1")
-# )
-# 
-# # Rename columns 
-# cleaned_measures.df = cleaned_measures.df %>%
-#   rename(
-#     non_imputed_available_stay_unit_nights = sanitised_available_stay_unit_nights,
-#     non_imputed_occupied_nights = sanitised_occupied_nights,
-#     non_imputed_guest_nights = sanitised_guest_nights, 
-#     non_imputed_guest_arrivals = sanitised_guest_arrivals,
-#     non_imputed_domestic = sanitised_domestic_guest_nights,
-#     non_imputed_international = sanitised_intl_guest_nights
-#     )
-# 
-# cleaned_measures.df = cleaned_measures.df[!is.na(cleaned_measures.df$fresh_id),]
-```
-
-
-```{r message=FALSE, include=FALSE}
-# properties= left_join(
-#   x = core_non_excluded,
-#   y = cleaned_measures.df,
-#   by = c("fresh_id" = "fresh_id")
-# )
-# 
-# extra_responses = properties[duplicated(properties$fresh_id) | duplicated(properties$fresh_id, fromLast = TRUE),] %>% select(fresh_id, data_source) %>% filter(data_source == "1.5")
-# 
-# properties= anti_join(
-#   x = properties,
-#   y = extra_responses,
-#   by = c("fresh_id" = "fresh_id", "data_source" = "data_source")
-# )
-# 
-# # Check that we have the same number of unique ids as we had started with 
-# length(properties$fresh_id) - length(unique(properties$fresh_id))
-# length((properties$fresh_id))
-```
-
-
 # Imputation Calculations
 
 This R Markdown document will demonstrate the calculation of imputation for each of the below measures:
@@ -242,8 +37,7 @@ colnames(properties) <- colnames(properties) %>%
   tolower()
 
 excluded.df = properties %>%
-  filter(`exclude_from_imputation_(manual)` == "Exclude" | 
-        data_source == "3.1")
+  filter(data_source == "3.1")
 
 
 # Remove Excluded Properties
@@ -253,6 +47,10 @@ properties <- anti_join(
   by = "fresh_id"
 )
 ```
+# Preprocessing 
+
+#### Removing Unduly influential points 
+
 
 
 
@@ -312,7 +110,7 @@ For some regions, there are fewer than 3 accomodation providers for a particular
 
 The confidentiality of accomodation providers within these groups is to be protected. To do so, the comparable property set will comprise of all properties of the same property type across all RTOs. When this occurs for a particular property type of an RTO, the `comp_set_type` is set as `property_type`. 
 
-In the code `comp_set_name` is a string concatenation of the `rto` and `property_type` (or just the `property_type` for when there are fewer than 3 comparables. Conceptually, `comp_set_name` can be thought of as a distinct market. For example,  `Auckland RTOHotels (over 20 units)` represents the market of Hotels in the Auckland RTO Region.
+In the code, `comp_set_name` is a string concatenation of the `rto` and `property_type` (or just the `property_type` for when there are fewer than 3 comparables. Conceptually, `comp_set_name` can be thought of as a distinct market. For example,  `Auckland RTOHotels (over 20 units)` represents the market of Hotels in the Auckland RTO Region.
 
 
 # Step 2 - Compute Operational Ratios for each comparables group
@@ -334,9 +132,13 @@ where
 
 - $r$ is an operational ratio to be imputed.
 
+The set of comparable properties must have non-imputed data. Some properties may have non-imputed data for some fields but not for others. This means that the set of comparable properties will change slightly based on the input fields for the imputation calculation. 
+
+For illustrative purposes, we will demonstrate this process by focusing on the imputation for occupied nights. 
+
 ## Occupancy: 
 
-The ratio for imputing occupancy is given below. The comparable set only consists of accomodation providers for which data for guest arrivals has been provided. The numerator represents the total number of guest arrivals and the denominator represents the total monthly capacity, in the market given by `comp_set_name`.
+The ratio for imputing occupancy and ratio of available to capacity is given below. The comparable set only consists of accomodation providers for which data for guest arrivals has been provided. The numerator represents the total number of guest arrivals and the denominator represents the total monthly capacity, in the market given by `comp_set_name`.
 
 $$r= \frac{
 \sum_{i \in\{i | {guest\_arrivals}_{i} > 0 \}} guest\_arrivals_{i}
@@ -408,7 +210,7 @@ imputation_schedule_occupancy  %>%
 
 #### Properties in Bay of Plenty RTO
 
-Lets have a look at the relationship between available monthly capacity and occupancy rates for accomodation providers within the Bay of Plenty RTO. A larger shape indicates that there are more accomodation providers within the comparable set. 
+The scatter plot below shows the relationship between available monthly capacity and occupancy rates for accomodation providers within the Bay of Plenty RTO. A larger shape indicates that there are more accomodation providers within the comparable set. 
 
 
 ```{r message=FALSE}
@@ -490,7 +292,8 @@ compute_imputation_schedule <- function(
   df, 
   numerator_field, 
   denominator_field, 
-  imputation_name
+  imputation_name,
+  imputation_comp_set_field
   ){
   
   df_grouped = df %>% 
@@ -498,12 +301,20 @@ compute_imputation_schedule <- function(
     group_by_at(c("rto", "property_type")) %>%
     summarise_(
       count = interp(
-        ~sum(var > 0, na.rm = T), 
-        var = as.name(numerator_field)),
+        ~sum((numerator_var > 0) & (imputation_comp_set_var > 0), na.rm = T), 
+        numerator_var = as.name(numerator_field),
+        imputation_comp_set_var = as.name(imputation_comp_set_field)
+        ),
       
-      numerator = interp(~sum(var[var > 0], na.rm = T), var = as.name(numerator_field)),
+      numerator = interp(~sum(numerator_var[(numerator_var > 0) & (imputation_comp_set_var > 0)], na.rm = T), 
+                         imputation_comp_set_var = as.name(imputation_comp_set_field),
+                         numerator_var = as.name(numerator_field)
+                         ),
       
-      denominator = interp(~sum(var[numerator_var > 0], na.rm = T), var = as.name(denominator_field), numerator_var = as.name(numerator_field))
+      denominator = interp(~sum(denominator_var[(numerator_var > 0) & (imputation_comp_set_var >0)], na.rm = T), 
+                           imputation_comp_set_var = as.name(imputation_comp_set_field), 
+                           denominator_var = as.name(denominator_field),
+                           numerator_var = as.name(numerator_field))
       ) %>% ungroup()
     
   # Determine comp set type and name
@@ -558,21 +369,6 @@ compute_imputation_schedule <- function(
 
 ```
 
-```{r}
-#test
-imputation_guest_nights = compute_imputation_schedule(
-  df = properties,
-  numerator_field = "non_imputed_guest_nights",
-  denominator_field = "non_imputed_occupied_nights",
-  imputation_name = "guest_nights"
-)
-
-
-imputation_guest_nights %>%
-  filter(rto == "Bay of Plenty RTO")
-
-```
-
 
 ```{r message=FALSE, warning=FALSE}
 # Our five imputation schedules are as follows:
@@ -580,7 +376,8 @@ imputation_available_stay_unit_nights = compute_imputation_schedule(
   df = properties,
   numerator_field = "non_imputed_available_stay_unit_nights",
   denominator_field = "monthly_capacity",
-  imputation_name = "available_stay_unit_nights"
+  imputation_name = "available_stay_unit_nights",
+  imputation_comp_set_field = "non_imputed_occupied_nights"
   # property_type = "rto"
 )
 
@@ -588,28 +385,32 @@ imputation_occupied_nights = compute_imputation_schedule(
   df = properties,
   numerator_field = "non_imputed_occupied_nights",
   denominator_field = "non_imputed_available_stay_unit_nights",
-  imputation_name = "occupied_nights"
+  imputation_name = "occupied_nights",
+  imputation_comp_set_field = "non_imputed_occupied_nights"
 )
 
 imputation_guest_nights = compute_imputation_schedule(
   df = properties,
   numerator_field = "non_imputed_guest_nights",
   denominator_field = "non_imputed_occupied_nights",
-  imputation_name = "guest_nights"
+  imputation_name = "guest_nights",
+  imputation_comp_set_field = "non_imputed_guest_arrivals"
 )
 
 imputation_guest_arrivals = compute_imputation_schedule(
   df = properties,
   numerator_field = "non_imputed_guest_arrivals",
   denominator_field = "non_imputed_guest_nights",
-  imputation_name = "guest_arrivals"
+  imputation_name = "guest_arrivals",
+  imputation_comp_set_field = "non_imputed_guest_arrivals"
 )
 
 imputation_domestic_nights = compute_imputation_schedule(
   df = properties,
   numerator_field = "non_imputed_domestic",
   denominator_field = "non_imputed_guest_nights",
-  imputation_name = "domestic_nights"
+  imputation_name = "domestic_nights",
+  imputation_comp_set_field = "non_imputed_domestic"
 )
 
 
@@ -619,7 +420,7 @@ imputation_domestic_nights = compute_imputation_schedule(
 
 The below code demonstrates how the operational ratio is used to compute an imputation for `occupied_nights`. In this scenario, property 1318 is a property in the Bay of Plenty RTO with property type `Holiday parks and campgrounds.` We look up the property and the rto in the respective imputation schedule for `occupied_nights`. Since there are 6 properties with the same property type within the Bay of PLenty RTO, the set of comparables will consist of 5 properties (excluding property 1318).
 
-To compute the imputed occupied nights, we simply multiply the operational ratio with with the `available_stay_unit_nights` of property 1318, as so:
+To compute the imputed occupied nights, we simply multiply the operational ratio with with the `occupied_nights` of property 1318:
 
 $$Occupied\_Nights_{1318} = r \times occupied\_nights_{1318} $$
 
