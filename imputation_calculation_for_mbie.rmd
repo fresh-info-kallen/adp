@@ -1,7 +1,15 @@
 ---
 output:
+  pdf_document: default
   html_document:
-    keep_md: true
+    keep_md: yes
+  word_document: default
+always_allow_html: true
+header-includes:
+- \usepackage{pdflscape}
+- \newcommand{\blandscape}{\begin{landscape}}
+- \newcommand{\elandscape}{\end{landscape}}
+classoption: landscape
 ---
 ```{r message=FALSE, include=FALSE}
 library(tidyverse)
@@ -12,7 +20,11 @@ library(knitr)
 library(kableExtra)
 ```
 
-# Imputation Calculations
+
+
+# Description of Imputation Methodology
+
+# Section 1 - Overview 
 
 This R Markdown document will demonstrate the calculation of imputation for each of the below measures:
 
@@ -22,7 +34,14 @@ This R Markdown document will demonstrate the calculation of imputation for each
 - $Guest\_Arrivals$
 - $Domestic\_Nights$ (and by extension, International Nights, which is $Guest\_Nights - Domestic\_Nights$)
 
-We will first inspect the first 6 rows of the data at the start of the imputation process. Where no data for a particular measure is provided, this is indicated by `NA`. The imputation process will seek to compute an imputed value in place of the `NA`s, based on data available from comparable properties. Properties which form the comparable set are determined by the RTO, property type, or both. 
+We will first inspect the first 6 rows of the data at the start of the imputation process. Where no data for a particular measure is provided, this is indicated by `NA`. For these properties, there is a mix of responses and non responses for each the data fields shown (non imputed values). 
+
+The imputation process will compute an imputation to fill each `NA` with an imputed value, in the order of columns as per the table below (left to right). The monthly capacity of each property is always known. This is done by computing an operational ratio, and multiplying the ratio with the value of the field preceding the field for which an imputation is being computed. 
+
+For example, to calculate an imputation for `available_stay_unit_nights` for property 8440, we first calculate an operational ratio given by non-imputed data from donor properties, and multiply that ratio with the 
+value of the field `monthly_capacity` for property 8440. 
+
+This hotel is also missing data for `occupied_nights` and so this field will need to be computed. As per the previous imputation, an operational ratio is calculated and is multiplied with the imputed value of the preceding field, `available_stay_unit_nights`
 
 ```{r message=FALSE, include=FALSE}
 properties = read_excel(
@@ -46,246 +65,246 @@ properties <- anti_join(
   y = excluded.df,
   by = "fresh_id"
 )
+
+properties_test = properties
+colnames(properties_test) = str_replace(colnames(properties_test), 'non_imputed_','')
+colnames(properties_test) = str_replace_all(colnames(properties_test), '_',' ')
+table_properties_head <- properties_test %>%
+  head(6) %>%
+  select(id = `fresh id`, rto, `property type`, `monthly capacity`, `available stay unit nights`, `occupied nights`, `guest nights`, `guest arrivals`, `domestic nights` = domestic, `international nights` = international) %>%
+  kbl() %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), latex_options="scale_down") %>%
+  scroll_box(width = "100%")
+
+
 ```
-# Preprocessing 
-
-#### Removing Unduly influential points 
 
 
+```{r}
+table_properties_head
+```
+
+\newpage
+# Section 2 - Preprocessing 
+
+## 2.1 Calculating Z Score
+
+## 2.2 Excluding properties with outlying values from the imputation process
 
 
-# Step 1 - Derive Comparable Property Set
+\newpage
+# Section 3 - Imputation Process
 
-This first step involves finding the set of other comparable properties for each property. The set of comparable properties will consist of either
+## 3.1  Derive Donor Property Set
+<br><br><br><br><br> 
+  
+
+This step involves finding the set of other comparable properties for each property. The set of comparable properties will consist of either  
 
 - properties sharing the same property type within the same RTO, or 
-- properties sharing the same property type within New Zealand.
+- properties sharing the same property type nationwide.
 
 The former is used when there are sufficient respondents who have submitted data for a given attribute. If there are insufficient respondents, data from all respondents across the country sharing the same property type is used for imputation. This is done to protect the confidentiality of respondents, and also to increase the diversity of responses and to reduce the risk of one or two properties exerting undue influence on the imputation calculation. 
 
-Different imputations will require different fields of data. Currently, there are three ways to compute a set of comparable properties. For any given property, although the set of comparable properties for each imputation calculation is most likely to be the same, differences can arise when the group size is small and properties sharing the same property type within the RTO have submitted data for one attribute but not for an attribute for another imputation calculation. 
+We define property A as a property for which an imputation calculation is required. We also define the donor property set as the set of properties which will 'donate' or provide values for the calculation of the imputation for property A. 
+
+When calculating the imputation for any given field, the donor property set is determined by :
+
+- Property Type  
+
+- RTO - If there are three or more active and responding properties of the same type within the same RTO (including property A), then the donor set will consist of these properties (excluding property A); otherwise the donor set will consist of all properties of the same property type across New Zealand. 
+
+- Whether a property has submitted data for a specified field. This field depends on the field which is being imputed. For example, when calculating the imputation for the field $Available\_Stay\_Unit\_Nights$ for hotels in the Auckland RTO, the donor property set consists of all hotels in Auckland RTO which have submitted data for  $Occupied\_Nights$. If there are less than three properties which fulfill this criteria, then the donor property set would instead consist of hotels across New Zealand.
+
+| Field to be imputed             | Field to determine donor|
+|---------------------------------|-------------------------|
+| $Available\_Stay\_Unit\_Nights$ | $Occupied\_Nights$      |
+| $Occupied\_Nights$              | $Occupied\_Nights$      |
+| $Guest\_Nights$                 | $Guest\_Arrivals$       |
+| $Guest\_Arrivals$               | $Guest\_Arrivals$       |
+| $Domestic\_Nights$              | $Domestic\_Nights$      |
+
+\newpage
+
+The following code examples will demonstrate the process for calculating the ratio which is used to impute the field  $Occupied\_Nights$; This code is then generalised to apply for all of the imputation calculations. 
+
+We first need to count the number of properties which fulfill the three matching criteria as defined above. 
 
 ```{r message=FALSE}
 df_grouped = properties%>%
   group_by_at(c("rto", "property_type")) %>%
   summarise(
     
-    # Count properties with at least one stay available unit night  - This is used to determine `comp_set_type`
-    count_of_comparables_occupancy = sum(non_imputed_available_stay_unit_nights > 0, na.rm = T),
+    # Count properties with at least and at least one occupied night - This is used to determine `donor_set_type`
+    count = sum( (non_imputed_occupied_nights > 0), na.rm = T),
      )%>%
   ungroup()
-
+ 
 df_grouped %>%
   filter(rto == "Bay of Plenty RTO") %>%
   kbl() %>%
-  kable_classic(full_width = F, html_font = "Cambria") %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  kable_classic(html_font = "Cambria") %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
   scroll_box(width = "100%")
 ```
+
+\newpage
+
+We then proceed to name the donor property set. Based on the counts shown above, we must confidentialise the rto + property groups which have less than three properties. These groups will have group type `donor_set_type = 'property_type'` as they consist of properties from across the country sharing the same property type. Groups which have counts of three or greater will consist of properties only within the same rto, and so have `donor_set_type = rto_and_property_type` 
 
 ```{r message=FALSE}
 # Determine comp set type and name
 df_grouped = df_grouped %>%
   mutate(
-    comp_set_type = ifelse(
-      count_of_comparables_occupancy >= 3,
+    donor_set_type = ifelse(
+      count >= 3,
       "rto_and_property_type",
       "property_type"),
     
-    comp_set_name = ifelse(
-      count_of_comparables_occupancy >= 3,
+    donor_set_name = ifelse(
+      count >= 3,
+      paste(rto, property_type, sep = ""),
+      property_type)
+  )
+```
+
+
+
+```{r message = FALSE, include=FALSE}
+table_df_grouped = df_grouped %>% 
+  filter(rto == "Bay of Plenty RTO") %>%
+  kbl() %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                latex_options="scale_down") %>%
+  scroll_box(width = "100%")
+```
+
+```{r}
+table_df_grouped
+```
+
+\newpage
+## 3.2 - Compute Operational Ratios for each possible donor group
+
+For each `donor_set_name`, we will compute an operational ratio which will be used as an imputation ratio for all accomodation providers within this group (where an imputation is required).
+
+
+#### Example: Available Stay Unit Nights: 
+
+In this example, the occupancy rate is being calculated. This operational ratio will be used to impute the `available stay unit nights` for any properties in this group where data has not been provided for this field. 
+
+The numerator represents the total number of occupied nights and the denominator represents the total number of available stay unit nights across all the properties belonging to `donor_set_name`.
+
+$$r= \frac
+{ \sum_{i \in\{i \| {available\_stay\_unit\_nights}_{i} > 0 \}} available\_stay\_unit\_nights_{i} }
+{ \sum_{i \in\{i \| {available\_stay\_unit\_nights}_{i} > 0 \}} monthly\_capacity_{i} }$$
+
+where $i$ represents the $i-th$ donor property, and $N$ is the total number of properties within the donor property set.  
+
+```{r message=FALSE}
+df_grouped = properties%>%
+  group_by_at(c("rto", "property_type")) %>%
+  summarise(
+    
+    # Count properties with at least one occupied night - This is used to determine `donor_set_type`
+    count = sum(non_imputed_available_stay_unit_nights > 0, na.rm = T),
+    
+    # Numerator
+      sum_non_imputed_available_stay_unit_nights = sum(non_imputed_available_stay_unit_nights[
+        (non_imputed_available_stay_unit_nights > 0) & (non_imputed_occupied_nights > 0)
+        ], na.rm = T),
+    
+    # Denominator
+    sum_monthly_capacity = sum(monthly_capacity[
+      (non_imputed_available_stay_unit_nights > 0) & (non_imputed_occupied_nights > 0)
+      ], na.rm = T)
+     )%>%
+  ungroup()
+
+# Determine comp set type and name
+df_grouped = df_grouped %>%
+  mutate(
+    donor_set_type = ifelse(
+      count >= 3,
+      "rto_and_property_type",
+      "property_type"), 
+    
+    donor_set_name = ifelse(
+      count >= 3,
       paste(rto, property_type, sep = ""),
       property_type)
   )
 
-df_grouped %>% 
-  filter(rto == "Bay of Plenty RTO") %>%
-  kbl() %>%
-  kable_classic(full_width = F, html_font = "Cambria") %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
-  scroll_box(width = "100%")
-```
 
-For some regions, there are fewer than 3 accomodation providers for a particular property type which have provided data for this particular field. 
-
-The confidentiality of accomodation providers within these groups is to be protected. To do so, the comparable property set will comprise of all properties of the same property type across all RTOs. When this occurs for a particular property type of an RTO, the `comp_set_type` is set as `property_type`. 
-
-In the code, `comp_set_name` is a string concatenation of the `rto` and `property_type` (or just the `property_type` for when there are fewer than 3 comparables. Conceptually, `comp_set_name` can be thought of as a distinct market. For example,  `Auckland RTOHotels (over 20 units)` represents the market of Hotels in the Auckland RTO Region.
-
-
-# Step 2 - Compute Operational Ratios for each comparables group
-
-
-For each `comp_set_name`, we will compute an operational ratio which will be used as an imputation ratio for all accomodation providers within this group (where an imputation is required).
-
-The ratio calculation is as follows:
-
-$$r= \frac{
-\sum_{i \in\{i | X_{i\eta} > 0 \}} X_{i\eta}
-}{
-\sum_{i \in\{i | X_{i\eta} > 0 \}} X_{i\delta}
-}$$
-
-where 
-
-- $X$ an $N \times 2$ matrix of values each columns $X_\eta$ representing the values of the numerator variable and $X_\delta$ representing the values of the denominator variable, where $N$ is the number of accomodation providers within the comparable set.
-
-- $r$ is an operational ratio to be imputed.
-
-The set of comparable properties must have non-imputed data. Some properties may have non-imputed data for some fields but not for others. This means that the set of comparable properties will change slightly based on the input fields for the imputation calculation. 
-
-For illustrative purposes, we will demonstrate this process by focusing on the imputation for occupied nights. 
-
-## Occupancy: 
-
-The ratio for imputing occupancy and ratio of available to capacity is given below. The comparable set only consists of accomodation providers for which data for guest arrivals has been provided. The numerator represents the total number of guest arrivals and the denominator represents the total monthly capacity, in the market given by `comp_set_name`.
-
-$$r= \frac{
-\sum_{i \in\{i | {guest\_arrivals}_{i} > 0 \}} guest\_arrivals_{i}
-}{
-\sum_{i \in\{i | {guest\_arrivals}_{i} > 0 \}} monthly\_capacity_{i}
-}$$
-```{r message=FALSE}
-df_grouped = properties%>%
-  group_by_at(c("rto", "property_type")) %>%
-  summarise(
-    
-    # Count properties with at least one non_imputed_guest_arrival - This is used to determine `comp_set_type`
-    count_of_comparables_occupancy = sum(non_imputed_available_stay_unit_nights > 0, na.rm = T),
-    
-    # Numerator
-      sum_non_imputed_available_stay_unit_nights = sum(non_imputed_available_stay_unit_nights[non_imputed_available_stay_unit_nights > 0], na.rm = T),
-    
-    # Denominator
-    sum_monthly_capacity = sum(monthly_capacity[non_imputed_available_stay_unit_nights > 0], na.rm = T)
-     )%>%
-  ungroup()
-
-# Determine comp set type and name
-df_grouped = df_grouped %>%
-  mutate(
-    comp_set_type = ifelse(
-      count_of_comparables_occupancy >= 3,
-      "rto_and_property_type",
-      "rto"),
-    
-    comp_set_name = ifelse(
-      count_of_comparables_occupancy >= 3,
-      paste(rto, property_type, sep = ""),
-      rto)
-  )
-
-# Confidentialise
-
-# For comp_set_type == 'property_type'
+# For donor_set_type == 'property_type'
 aggregations_comp_set_property.df <- df_grouped %>%
-  group_by(comp_set_name = rto) %>%
+  group_by(donor_set_name = property_type) %>%
   summarise(
     sum_non_imputed_available_stay_unit_nights = sum(sum_non_imputed_available_stay_unit_nights), 
     sum_monthly_capacity = sum(sum_monthly_capacity)
   )
 
+aggregations_comp_set_property.df
+```
+
+
+```{r message=FALSE}
 imputation_per_property_type.df = inner_join(
-  x = df_grouped %>% select(comp_set_name, comp_set_type, rto, property_type, count_of_comparables_occupancy),
+  x = df_grouped %>% select(donor_set_name, donor_set_type, rto, property_type, count),
   y = aggregations_comp_set_property.df,
-  by = c("comp_set_name" = "comp_set_name")
+  by = c("donor_set_name" = "donor_set_name")
 )
 
-# For comp_set_type == 'rto_and_property_type'
+# For donor_set_type == 'rto_and_property_type'
 imputation_per_rto_and_property_type.df = df_grouped %>%
-  filter(comp_set_type == "rto_and_property_type")
+  filter(donor_set_type == "rto_and_property_type")
 
 imputation_schedule_occupancy = rbind(imputation_per_property_type.df, imputation_per_rto_and_property_type.df)
 
 # Compute Ratio
-imputation_schedule_occupancy$ratio_occupancy = imputation_schedule_occupancy$sum_non_imputed_available_stay_unit_nights / imputation_schedule_occupancy$sum_monthly_capacity
+num = imputation_schedule_occupancy$sum_non_imputed_available_stay_unit_nights
+den = imputation_schedule_occupancy$sum_monthly_capacity
+imputation_schedule_occupancy$ratio_occupancy = num / den
 
-imputation_schedule_occupancy  %>%
+imputation_schedule_occupancy %>%
+  filter(count <3)
+```
+
+
+```{r message=FALSE, include = FALSE}
+names_spaced = c("donor set name", "donor set type", "rto", "property_type", "count of properties", "sum available stay", "donor set name", "ratio occupancy")
+table_imputation_schedule_occupancy_bop = imputation_schedule_occupancy  %>%
   filter(rto == "Bay of Plenty RTO") %>%
-  kbl() %>%
+  kbl(col.names = names_spaced) %>%
+  column_spec(1:length(names_spaced), width = "4cm") %>%
   kable_classic(full_width = F, html_font = "Cambria") %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), latex_options="scale_down") %>%
   scroll_box(width = "100%")
 ```
 
-#### Properties in Bay of Plenty RTO
-
-The scatter plot below shows the relationship between available monthly capacity and occupancy rates for accomodation providers within the Bay of Plenty RTO. A larger shape indicates that there are more accomodation providers within the comparable set. 
-
-
-```{r message=FALSE}
-imputation_schedule_occupancy %>%
-    filter(rto == "Bay of Plenty RTO") %>%
-    rename(`Monthly Capacity` = sum_monthly_capacity, count = count_of_comparables_occupancy) %>%
-    ggplot(aes(x = `Monthly Capacity`, y = ratio_occupancy, col = property_type)) +
-    geom_point(aes(shape = comp_set_type, size = count)) +
-    geom_text_repel(aes(label = property_type)) +
-    ggtitle("Occupancy Ratio vs Monthly Capacity of Bay of Plenty Accomodation Providers")
+```{r}
+table_imputation_schedule_occupancy_bop
 ```
 
 
-#### All Hotels in New Zealand
+\newpage
 
+The formula to derive the operational ratio for each imputation calculation is given in the table below. 
 
-The below scatter plot shows the count of hotels within each RTO, against the total monthly capacity of hotels within the RTO. RTOs with more than three hotels (indicated by the red dashed line) have `compset_type = rto_and_property_type`, while RTOs with less than three hotels will have `compset_type = rto`As expected, the big attractions such as Auckland, Wellington and Queenstown have the highest capacity and will have plenty of comparables. 
+| Field                      | Description                                                                                                                                                                                  | Formula                                                                                                                                                                                              |
+|----------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Available Stay Unit Nights | Stay units made available for short-term guests multiplied by the number of days of availability. This includes occupied and unoccupied stay units, and those located for managed isolation. | $$r= \frac{ \sum_{i \in\{i \| {available\_stay\_unit\_nights}_{i} > 0 \}} available\_stay\_unit\_nights_{i} }{ \sum_{i \in\{i \| {available\_stay\_unit\_nights}_{i} > 0 \}} monthly\_capacity_{i} }$$ |
+| Occupied Nights            | Stay units occupied by short-term guests during the month.                                                                                           | $$r= \frac{ \sum_{i \in\{i \| {occupied\_nights}_{i} > 0 \}} occupied\_nights_{i} }{ \sum_{i \in\{i \| {occupied\_nights}_{i} > 0 \}} available\_stay\_unit\_nights_{i} }$$                            |
+| Guest Nights               | Cumulative number of nights spent short-term guests. Equivalent to one guest spending one night in a property. This includes managed isolation guests.                                       | $$r= \frac{ \sum_{i \in\{i \| {guest\_nights}_{i} > 0 \}} guest\_nights_{i} }{ \sum_{i \in\{i \| {guest\_nights}_{i} > 0 \}} occupied\_nights_{i} }$$                                                  |
+| Guest Arrivals             | Number of individual short-term guests checking in during the reference month. This includes managed isolation guests.                                                                       | $$r= \frac{ \sum_{i \in\{i \| {guest\_arrivals}_{i} > 0 \}} guest\_arrivals_{i} }{ \sum_{i \in\{i \| {guest\_arrivals}_{i} > 0 \}} guest\_nights_{i} }$$                                               |
+| Domestic Nights            | Nights spent by guests that were identified as being from New Zealand.                                                                                                                       | $$r= \frac{ \sum_{i \in\{i \| {domestic\_nights}_{i} \geq 0 \}} domestic\_nights_{i} }{ \sum_{i \in\{i \| {domestic\_nights}_{i} \geq 0 \}} guest\_nights_{i} }$$                                            |
 
+\newpage
 
-```{r message=FALSE}
-imputation_schedule_occupancy %>%
-    filter(property_type == "Hotels (over 20 units)") %>%
-    rename(`Monthly Capacity` = sum_monthly_capacity) %>%
-
-    ggplot(aes(x = `Monthly Capacity`, y = count_of_comparables_occupancy, col = comp_set_type)) +
-    geom_point(aes(size = count_of_comparables_occupancy)) +
-    ggtitle("Occupancy Ratio vs Monthly Capacity of NZ Hotels") +
-    geom_hline(aes(yintercept =3), linetype = 'dashed', col = 'red') +
-    geom_text_repel(aes(label = rto))
-```
-
-
-## All Ratios
-
-#### Available Stay Unit Nights 
-
-$$r= \frac{
-\sum_{i \in\{i | {available\_stay\_unit\_nights}_{i} > 0 \}} available\_stay\_unit\_nights_{i}
-}{
-\sum_{i \in\{i | {available\_stay\_unit\_nights}_{i} > 0 \}} monthly\_capacity_{i}
-}$$
-
-#### Occupied Nights 
-$$r= \frac{
-\sum_{i \in\{i | {occupied\_nights}_{i} > 0 \}} occupied\_nights_{i}
-}{
-\sum_{i \in\{i | {occupied\_nights}_{i} > 0 \}} available\_stay\_unit\_nights_{i}
-}$$
-
-
-#### Guest Nights 
-
-$$r= \frac{
-\sum_{i \in\{i | {guest\_nights}_{i} > 0 \}} guest\_nights_{i}
-}{
-\sum_{i \in\{i | {guest\_nights}_{i} > 0 \}} occupied\_nights_{i}
-}$$
-
-#### Guest Arrivals 
-
-$$r= \frac{
-\sum_{i \in\{i | {guest\_arrivals}_{i} > 0 \}} guest\_arrivals_{i}
-}{
-\sum_{i \in\{i | {guest\_arrivals}_{i} > 0 \}} guest\_nights_{i}
-}$$
-
-#### Domestic Nights
-
-$$r= \frac{
-\sum_{i \in\{i | {domestic\_nights}_{i} > 0 \}} domestic\_nights_{i}
-}{
-\sum_{i \in\{i | {domestic\_nights}_{i} > 0 \}} guest\_nights_{i}
-}$$
-
-The below function computes an imputation schedule for a particular imputation measure. 
+We parameterise the The below function computes an imputation schedule for a particular imputation measure. 
 
 ```{r message=FALSE}
 compute_imputation_schedule <- function(
@@ -320,19 +339,19 @@ compute_imputation_schedule <- function(
   # Determine comp set type and name
   df_grouped = df_grouped %>%
     mutate(
-      comp_set_type = ifelse(
+      donor_set_type = ifelse(
         count >= 3,
         "rto_and_property_type",
         "property_type"),
       
-      comp_set_name = ifelse(
+      donor_set_name = ifelse(
         count >= 3,
         paste(rto, property_type, sep = ""),
         property_type)
     )
-  # Confidentialise
+  
   aggregations_comp_set_property.df <- df_grouped %>%
-  group_by(comp_set_name = property_type) %>%
+  group_by(donor_set_name = property_type) %>%
   summarise(
     numerator = sum(numerator),
     denominator = sum(denominator)
@@ -340,21 +359,21 @@ compute_imputation_schedule <- function(
 
   imputation_per_property_type.df = inner_join(
     x = df_grouped %>%
-      select(comp_set_name, comp_set_type, rto, property_type, count),
+      select(donor_set_name, donor_set_type, rto, property_type, count),
     y = aggregations_comp_set_property.df,
-    by = c("comp_set_name" = "comp_set_name")
+    by = c("donor_set_name" = "donor_set_name")
   )
 
   imputation_per_rto_and_property_type.df = df_grouped %>%
-    filter(comp_set_type == "rto_and_property_type")
+    filter(donor_set_type == "rto_and_property_type")
 
-  # Row bind the imputation schedules for both `rto_and_property_type` and either `rtop` or `proprety_type`
+  # Row bind the imputation schedules for both `rto_and_property_type` and either `rtop` or `property_type`
   imputation_schedule = rbind(imputation_per_property_type.df, imputation_per_rto_and_property_type.df)
 
   imputation_schedule = imputation_schedule %>%
-    rename_at("comp_set_type", ~paste(imputation_name, "comp_set_type", sep = "_")) %>%
-    rename_at("comp_set_name", ~paste(imputation_name, "comp_set_name", sep = "_")) %>%
-    rename_at("count", ~ paste(imputation_name, "imputation_comparables_count", "count", sep = "_")) %>%
+    rename_at("donor_set_type", ~paste(imputation_name, "donor_set_type", sep = "_")) %>%
+    rename_at("donor_set_name", ~paste(imputation_name, "donor_set_name", sep = "_")) %>%
+    rename_at("count", ~ paste(imputation_name, "imputation_donors_count", "count", sep = "_")) %>%
     
   # Calculate Ratio 
   mutate(ratio = numerator/denominator) %>%
@@ -366,19 +385,19 @@ compute_imputation_schedule <- function(
 
   return(imputation_schedule)
 }
-
 ```
 
+\newpage
+
+Our five imputation schedules are as follows
 
 ```{r message=FALSE, warning=FALSE}
-# Our five imputation schedules are as follows:
 imputation_available_stay_unit_nights = compute_imputation_schedule(
   df = properties,
   numerator_field = "non_imputed_available_stay_unit_nights",
   denominator_field = "monthly_capacity",
   imputation_name = "available_stay_unit_nights",
   imputation_comp_set_field = "non_imputed_occupied_nights"
-  # property_type = "rto"
 )
 
 imputation_occupied_nights = compute_imputation_schedule(
@@ -404,7 +423,12 @@ imputation_guest_arrivals = compute_imputation_schedule(
   imputation_name = "guest_arrivals",
   imputation_comp_set_field = "non_imputed_guest_arrivals"
 )
+```
 
+
+
+\newpage
+```{r message=FALSE, warning = FALSE}
 imputation_domestic_nights = compute_imputation_schedule(
   df = properties,
   numerator_field = "non_imputed_domestic",
@@ -416,13 +440,32 @@ imputation_domestic_nights = compute_imputation_schedule(
 
 ```
 
-# Step 3 -  Calculating the Imputation
+\newpage
+## 3.3 -  Calculating the Imputation
 
-The below code demonstrates how the operational ratio is used to compute an imputation for `occupied_nights`. In this scenario, property 1318 is a property in the Bay of Plenty RTO with property type `Holiday parks and campgrounds.` We look up the property and the rto in the respective imputation schedule for `occupied_nights`. Since there are 6 properties with the same property type within the Bay of PLenty RTO, the set of comparables will consist of 5 properties (excluding property 1318).
+The below code demonstrates how the operational ratio is used to compute an imputation for `guest_nights`. In this scenario, property 1318 is a property in the Bay of Plenty RTO with property type `Holiday parks and campgrounds.` We look up the property and the rto in the respective imputation schedule for `occupied_nights`. Since there are 6 other properties with the same property type within the Bay of Plenty RTO, the set of donors will consist of those 6 properties.
+
+```{r include = FALSE}
+names_spaced = c("fresh_id", "rto", "property type", "occupied nights", "guest nights")
+
+table_1318 = properties%>%
+  filter(fresh_id == 1318) %>%
+  select(fresh_id, rto, property_type, non_imputed_occupied_nights, non_imputed_guest_nights) %>%
+  kbl(col.names = names_spaced) %>%
+   # column_spec(1:length(names_spaced), width = "2cm") %>%
+   kable_classic(full_width = F, html_font = "Cambria") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  scroll_box(width = "100%")
+```
+
+```{r}
+table_1318
+```
+
 
 To compute the imputed occupied nights, we simply multiply the operational ratio with with the `occupied_nights` of property 1318:
 
-$$Occupied\_Nights_{1318} = r \times occupied\_nights_{1318} $$
+$$guest\_nights_{1318} = r \times occupied\_nights_{1318} $$
 
 where
 
@@ -432,11 +475,13 @@ $$r= \frac{
 \sum_{i \in\{i | {guest\_nights}_{i} > 0 \}} occupied\_nights_{i}
 }$$
 
+where $i$ represents the $i-th$ donor property, and $N$ is the total number of properties within the donor property set which comprises of (Holiday parks and camp-grounds in Bay of Plenty. 
+
 
 ```{r message=FALSE, warning=FALSE}
 filtered.df = properties%>%
   filter(fresh_id == 1318) %>%
-  select(fresh_id, rto, property_type, non_imputed_guest_nights, non_imputed_occupied_nights)
+  select(fresh_id, rto, property_type, non_imputed_occupied_nights, non_imputed_guest_nights)
 
 # Lookup the rto and property type in the imputation comp set table
 filtered.df = left_join(
@@ -449,15 +494,71 @@ filtered.df = left_join(
 filtered.df$imputed_guest_nights = filtered.df$guest_nights_ratio * filtered.df$non_imputed_occupied_nights
 
 # Final Imputed Value 
-filtered.df$imputed_guest_nights
-
-kbl(filtered.df)%>%
-   kable_classic(full_width = F, html_font = "Cambria") %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
-  scroll_box(width = "100%")
-
+round(filtered.df$imputed_guest_nights, 0)
 ```
 
+```{r include = FALSE, message=FALSE, warning=FALSE}
+names_spaced = colnames(filtered.df) %>% str_replace_all("non_imputed_", "") %>% str_replace_all("_"," ")  
+table_1318_imputed = filtered.df%>%
+  kbl(col.names = names_spaced) %>%
+   column_spec(1:length(names_spaced), width = "2cm") %>%
+   kable_classic(full_width = F, html_font = "Cambria") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                latex_options="scale_down") %>%
+  scroll_box(width = "100%")
+```
+
+```{r}
+table_1318_imputed
+```
+
+
+```{r include=FALSE}
+imputation_guest_nights %>%
+  filter(property_type == "Hotels (over 20 units)" & rto == "West Coast RTO")
+```
+
+
+```{r include=FALSE}
+# imputation_available_stay_unit_nights %>%
+#   filter(rto == "Auckland RTO" & property_type == "Backpackers (over 20 units)")
+master = properties %>% inner_join(
+  y = imputation_available_stay_unit_nights,
+  by = c("rto", "property_type")
+) %>% inner_join(
+  y = imputation_occupied_nights,
+  by = c("rto", "property_type")
+) %>% inner_join(
+  y = imputation_guest_nights,
+  by = c("rto", "property_type")
+) %>% inner_join(
+  y = imputation_guest_arrivals,
+  by = c("rto", "property_type")
+) %>% inner_join(
+  y = imputation_domestic_nights,
+  by = c("rto", "property_type")
+)
+
+master
+# write.csv(master, 'master_3.csv')
+```
+
+```{r include=FALSE}
+master %>%
+  filter(imputation_cell_for_occupancy_and_ratio_of_available_to_capacity != available_stay_unit_nights_donor_set_name)
+
+master %>%
+  filter(imputation_cell_for_occupancy_and_ratio_of_available_to_capacity != occupied_nights_donor_set_name)
+
+master %>%
+  filter(imputation_cell_for_guest_nights_and_arrivals != guest_nights_donor_set_name) %>%
+  select(name, rto, property_type, imputation_cell_for_guest_nights_and_arrivals, guest_nights_donor_set_name, guest_nights_imputation_donors_count_count)
+
+
+master %>%
+  filter(imputation_cell_for_guest_nights_and_arrivals != guest_nights_donor_set_name)
+
+```
 
 
 
