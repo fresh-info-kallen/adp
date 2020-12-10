@@ -71,7 +71,7 @@ colnames(properties_test) = str_replace(colnames(properties_test), 'non_imputed_
 colnames(properties_test) = str_replace_all(colnames(properties_test), '_',' ')
 table_properties_head <- properties_test %>%
   head(6) %>%
-  select(id = `fresh id`, rto, `property type`, `monthly capacity`, `available stay unit nights`, `occupied nights`, `guest nights`, `guest arrivals`, `domestic nights` = domestic, `international nights` = international) %>%
+  # select(id = `fresh id`, rto, `property type`, `monthly capacity`, `available stay unit nights`, `occupied nights`, `guest nights`, `guest arrivals`, `domestic nights` = domestic, `international nights` = international) %>%
   kbl() %>%
   kable_classic(full_width = F, html_font = "Cambria") %>%
   kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), latex_options="scale_down") %>%
@@ -86,11 +86,123 @@ table_properties_head
 ```
 
 \newpage
-# Section 2 - Preprocessing 
+# Section 2 - Outlier Processing  
+
+We define outliers as unusual values that have the potential to materially influence regional and national results. Values that we considered to be plausible but highly influential were left in the data but are not included in the imputation process for other properties. We currently recognise two types of outliers:
+
+ - Managed isolation and quarantine facilities: Because of the short-term nature of the isolation stay, these hotels are included in the counts of available stay-units, occupied nights, guest nights, and guest arrivals.
+ 
+ - Properties with extreme (high/low) occupancy rates: We calculate the z-score for occupancy observations within each property type and multiply this number by 1000 * share of capacity for that property within its type. This provided a measure of the relative influence of a property’s performance on the results. Those with a value greater than 10 are flagged as outliers.
 
 ## 2.1 Calculating Z Score
 
+```{r}
+properties = properties %>%
+  mutate(margin_of_error = ifelse(flagged_as_a_response == 1, non_imputed_occupied_nights/non_imputed_available_stay_unit_nights, NA)) 
+
+group_standard_deviations = properties %>%
+  group_by(property_type) %>%
+  summarise(standard_deviation = sd(margin_of_error, na.rm = T))
+
+properties = left_join(
+  x = properties,
+  y = group_standard_deviations,
+  by = c('property_type' = 'property_type')
+)
+```
+
+
+```{r}
+# Statistics for Target Population
+# target_pop_stats = properties
+
+properties_all = read_excel(
+  path = "2020.09 Monthly survey.xlsx",
+  sheet = "Target Pop",
+  na = "?"
+)
+
+colnames(properties_all) <- colnames(properties_all) %>%
+  str_replace_all('-', '_') %>%
+  str_replace_all(' ', '_') %>% 
+  tolower()
+
+target_pop_stats = properties_all %>% 
+  group_by(property_type) %>%
+  summarise(
+    stats_sum_available_stay_unit_nights =  sum(imputed_available_stay_unit_nights, na.rm = T),
+    stats_sum_occupied_stay_unit_nights =   sum(imputed_occupied_nights, na.rm = T)
+    ) %>%
+  mutate(stats_occupancy_rate = stats_sum_occupied_stay_unit_nights / stats_sum_available_stay_unit_nights)
+```
+
+The below table shows the aggregated measures across each property type. 
+
+```{r include = FALSE}
+kbl_df = target_pop_stats%>%
+  mutate(stats_occupancy_rate = round(stats_occupancy_rate, 2)) %>%
+  kbl() %>%
+  kable_classic(html_font = "Cambria") %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  scroll_box(width = "100%")
+```
+
+```{r}
+kbl_df
+```
+
+```{r}
+# Merge with target pop stats to get the group measures
+properties = left_join(
+  x = properties,
+  y = target_pop_stats,
+  by = c("property_type" = "property_type")
+)
+
+# Calculate Z-score
+properties = properties %>% 
+  mutate(
+    z_score = abs(
+      (non_imputed_occupied_nights / non_imputed_available_stay_unit_nights) - stats_occupancy_rate
+    ) 
+    / 
+      standard_deviation 
+    * 
+      (imputed_available_stay_unit_nights / stats_sum_available_stay_unit_nights)
+    * 1000
+  ) 
+```
+
 ## 2.2 Excluding properties with outlying values from the imputation process
+
+```{r}
+properties  = properties %>%
+  mutate(outlier_excluded = ifelse(z_score > 10, 'excluded', 'not_excluded'))
+```
+
+```{r include = FALSE}
+kbl_df = properties %>% 
+  filter(fresh_id == 8 | fresh_id == 7) %>%
+   mutate(
+     stats_occupancy_rate = round(stats_occupancy_rate, 2),
+     z_score = round(z_score, 2),
+     property_occupancy_rate = round(non_imputed_occupied_nights/non_imputed_available_stay_unit_nights,2)
+     ) %>%
+  select(property_type, property_occupancy_rate, stats_occupancy_rate, z_score, outlier_excluded, non_imputed_occupied_nights, non_imputed_available_stay_unit_nights) %>%
+  kbl() %>%
+  kable_classic(html_font = "Cambria") %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  scroll_box(width = "100%")
+```
+
+The below table shows two hotel properties in which one has been determined to be an outlier based on its occupancy rate.
+
+```{r}
+kbl_df
+```
+
 
 
 \newpage
@@ -262,21 +374,21 @@ imputation_per_property_type.df = inner_join(
 imputation_per_rto_and_property_type.df = df_grouped %>%
   filter(donor_set_type == "rto_and_property_type")
 
-imputation_schedule_occupancy = rbind(imputation_per_property_type.df, imputation_per_rto_and_property_type.df)
+imputation_schedule_available_stay_unit_nights = rbind(imputation_per_property_type.df, imputation_per_rto_and_property_type.df)
 
 # Compute Ratio
-num = imputation_schedule_occupancy$sum_non_imputed_available_stay_unit_nights
-den = imputation_schedule_occupancy$sum_monthly_capacity
-imputation_schedule_occupancy$ratio_occupancy = num / den
+num = imputation_schedule_available_stay_unit_nights$sum_non_imputed_available_stay_unit_nights
+den = imputation_schedule_available_stay_unit_nights$sum_monthly_capacity
+imputation_schedule_available_stay_unit_nights$ratio_available_stay_unit_nights = num / den
 
-imputation_schedule_occupancy %>%
+imputation_schedule_available_stay_unit_nights %>%
   filter(count <3)
 ```
 
 
 ```{r message=FALSE, include = FALSE}
 names_spaced = c("donor set name", "donor set type", "rto", "property_type", "count of properties", "sum available stay", "donor set name", "ratio occupancy")
-table_imputation_schedule_occupancy_bop = imputation_schedule_occupancy  %>%
+table_imputation_schedule_available_stay_unit_nights_bop = imputation_schedule_available_stay_unit_nights  %>%
   filter(rto == "Bay of Plenty RTO") %>%
   kbl(col.names = names_spaced) %>%
   column_spec(1:length(names_spaced), width = "4cm") %>%
@@ -286,7 +398,7 @@ table_imputation_schedule_occupancy_bop = imputation_schedule_occupancy  %>%
 ```
 
 ```{r}
-table_imputation_schedule_occupancy_bop
+table_imputation_schedule_available_stay_unit_nights_bop
 ```
 
 
